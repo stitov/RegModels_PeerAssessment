@@ -1,0 +1,97 @@
+---
+title: 'Regression Models: Peer Assessment'
+geometry: margin=1.5cm
+output:
+  pdf_document: default
+  html_document:
+    keep_md: yes
+---
+## Executive Summary
+
+This sheet explores the relationship between miles-per-gallon (MPG) and other variables in the mtcars data set. First, the analysis attempts to determine whether an automatic or manual transmission is better for MPG. At second part of document we find the best fit model for mpg outcome.
+
+Answer for main question - Is an automatic or manual transmission better for MPG? The cars with manual transmission have a better fuel consumption and bigger mileage per gallon. The mean MPG difference between transmissions is equal 7.245 MPG. 
+
+## Quick view on data
+Load the data and quick view on it.
+```{r, echo = T}
+data (mtcars)
+dim (mtcars)
+head (mtcars, 3)
+```
+The dataset has 32 objects of 11 variables. 
+
+Boxplot show us the strong difference in miles per gallon between automatic and manual transmission (see Appendix 1)
+
+## Linear model based on transmisison
+
+```{r, echo = T}
+fit <- lm (mpg ~ factor (am), mtcars)
+summary (fit)
+```
+The beta0 coefficient (Intercept) is equal 17.147 and beta1 coefficient is equal 7.245. It means that the average MPG for cars with automatic transmission is 17.147 MPG, and the average MPG for cars with manual transmissions is beta0 plus beta1 = 24.392 MPG.
+The mean MPG difference between transmissions equal beta1, 7.245 MPG - the cars with manual transmission have a better fuel consumption and bigger mileage per gallon.
+
+For residual plot for this model, please, see Appendix (2).
+
+The 95% confidence intervals for beta0 and beta1:
+```{r, echo = T}
+sumCoef <- summary (fit)$coefficients
+sumCoef [1,1] + c(-1, 1) * qt(.975, df = fit$df) * sumCoef [1, 2] # beta0
+sumCoef [2,1] + c(-1, 1) * qt(.975, df = fit$df) * sumCoef [2, 2] # beta1
+```
+
+## Multivariable linear model
+
+Ok, let's try to find the best fit linear model using one of my favorite packages - caret (http://topepo.github.io/caret/index.html).
+Caret packages suggests a different feature selection methods, such as recursive feature selection, Genetic Algorithms, Simulated Annealing. Apply the simplest, RFE method.
+
+First, create an rfeControl object, that  specifies the details of the feature selection. Argument 'function' is set to 'lmFuncs', method to repeated cross validation and repeats is equal five. Don't forget to set seed for reproducible research.
+
+```{r, warning = F, message = F, echo = T}
+library ('caret')
+set.seed (1)
+ctrl <- rfeControl (functions = lmFuncs, method = "repeatedcv",
+                    repeats = 5, verbose = FALSE)
+```
+
+Second, call the rfe function, that fits the model. X is predictors (first column of data frame is MPG) and Y is an outcome. The 'sizes' arguments corresponds to the number of features that should be retained.
+```{r, echo = T, cache = T}
+lmProfile <- rfe (x = mtcars [-1], mtcars [ , 1], sizes = 1:10, rfeControl = ctrl)
+
+predictors (lmProfile)
+```
+
+The last command tell us that the best model is with predictors weigth, A/M tansmission, 1/4 mile time and horsepower.
+Look at summary model.
+```{r, echo = T}
+lmfit <- lmProfile$fit
+lmfit
+```
+
+Diagnostic plots for fitting model. (see Appendix).
+Residuals vs Fitted looks good without any pattern. Normal QQ plot is on the line.
+
+##Appendix
+1.Boxplot MPG vs transmission.
+```{r, echo = T, fig.height = 8, fig.width = 12}
+with (mtcars, boxplot (mpg ~ am, xlab = "0 = automatic, 1 = manual"))
+```
+
+
+2. Residual plot for single linear model.
+```{r, echo = T, fig.height = 6, fig.width = 12}
+plot (fit, which = 1)
+```
+
+3. Diagnostic plots for fitting model. (see Appendix).
+```{r, echo = T, fig.height = 8, fig.width = 12}
+par (mfrow = c (2, 2), oma = c (0, 0, 2, 0))
+plot (lmfit)
+```
+
+4. Best fit model feauture selection. Root Mean Squared Error (RMSE).
+```{r, echo = T, fig.height = 6, fig.width = 12}
+trellis.par.set(caretTheme())
+plot(lmProfile, type = c("g", "o"))
+```
